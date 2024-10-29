@@ -1,4 +1,4 @@
-####A C++ Data Structure Github Page!
+###A C++ Data Structure Github Page!
 
 - **Range Sum Queries**: Efficiently calculate the sum of elements in a specified range.
 - **Point Updates**: Update the value of a specific element in the array.
