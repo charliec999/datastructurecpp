@@ -1,91 +1,120 @@
-#include <bits/stdc++.h>
-using namespace std;
+#include <iostream>
+#include <vector>
+#include <climits>
 
-struct Node {
-    int value;
-    Node *left, *right;
-
-    Node(int v = 0) : value(v), left(nullptr), right(nullptr) {}
-};
-
-class PersistentSegmentTree2D {
-public:
-    PersistentSegmentTree2D(int rows, int cols) : rows(rows), cols(cols) {
-        roots.push_back(build(0, 0, rows - 1, 0, cols - 1));
-    }
-
-    void rangeUpdate(int version, int x1, int y1, int x2, int y2, int delta) {
-        roots.push_back(update(roots[version], 0, 0, rows - 1, 0, cols - 1, x1, y1, x2, y2, delta));
-    }
-
-    int rangeQuery(int version, int x1, int y1, int x2, int y2) {
-        return query(roots[version], 0, 0, rows - 1, 0, cols - 1, x1, y1, x2, y2);
-    }
-
+class SegmentTree {
 private:
-    int rows, cols;
-    vector<Node*> roots;
+    std::vector<int> tree;         
+    std::vector<int> lazy;         
+    int n;                          
 
-    Node* build(int x1, int y1, int x2, int y2) {
-        Node* node = new Node();
-        if (x1 == x2 && y1 == y2) return node; 
-        int midX = (x1 + x2) / 2;
-        int midY = (y1 + y2) / 2;
-        node->left = build(x1, y1, midX, midY);
-        node->right = build(midX + 1, midY + 1, x2, y2);
-        return node;
+    
+    void buildTree(const std::vector<int>& arr, int node, int start, int end) {
+        if (start == end) {
+            
+            tree[node] = arr[start];
+        } else {
+            int mid = (start + end) / 2;
+            buildTree(arr, 2 * node + 1, start, mid);
+            buildTree(arr, 2 * node + 2, mid + 1, end);
+            tree[node] = tree[2 * node + 1] + tree[2 * node + 2]; 
+        }
     }
 
-    Node* update(Node* prev, int x1, int y1, int x2, int y2, int qx1, int qy1, int qx2, int qy2, int delta) {
-        Node* node = new Node(*prev); 
+    
+    void propagate(int node, int start, int end) {
+        if (lazy[node] != 0) {
+            
+            tree[node] += lazy[node] * (end - start + 1);
+            if (start != end) {
+                
+                lazy[2 * node + 1] += lazy[node];
+                lazy[2 * node + 2] += lazy[node];
+            }
+            lazy[node] = 0; 
+        }
+    }
 
-        
-        if (qx1 > x2 || qy1 > y2 || qx2 < x1 || qy2 < y1) return node;
+    
+    void rangeUpdateUtil(int node, int start, int end, int L, int R, int value) {
+        propagate(node, start, end); 
 
-        
-        if (qx1 <= x1 && qy1 <= y1 && qx2 >= x2 && qy2 >= y2) {
-            node->value += (x2 - x1 + 1) * (y2 - y1 + 1) * delta; 
-            return node;
+        if (start > end || start > R || end < L) {
+            return; 
+        }
+        if (start >= L && end <= R) {
+            
+            tree[node] += value * (end - start + 1);
+            if (start != end) {
+                lazy[2 * node + 1] += value; 
+                lazy[2 * node + 2] += value;
+            }
+            return;
         }
 
-        int midX = (x1 + x2) / 2;
-        int midY = (y1 + y2) / 2;
-        
-        
-        node->left = update(prev->left, x1, y1, midX, midY, qx1, qy1, qx2, qy2, delta);
-        node->right = update(prev->right, midX + 1, midY + 1, x2, y2, qx1, qy1, qx2, qy2, delta);
-
-        
-        node->value = (node->left ? node->left->value : 0) + (node->right ? node->right->value : 0);
-        return node;
+        int mid = (start + end) / 2;
+        rangeUpdateUtil(2 * node + 1, start, mid, L, R, value);
+        rangeUpdateUtil(2 * node + 2, mid + 1, end, L, R, value);
+        tree[node] = tree[2 * node + 1] + tree[2 * node + 2]; 
     }
 
-    int query(Node* node, int x1, int y1, int x2, int y2, int qx1, int qy1, int qx2, int qy2) {
-        if (!node || qx1 > x2 || qy1 > y2 || qx2 < x1 || qy2 < y1) return 0;
+    
+    int rangeQueryUtil(int node, int start, int end, int L, int R) {
+        propagate(node, start, end); 
 
+        if (start > end || start > R || end < L) {
+            return 0; 
+        }
+        if (start >= L && end <= R) {
+            return tree[node]; 
+        }
+
+        int mid = (start + end) / 2;
+        int leftSum = rangeQueryUtil(2 * node + 1, start, mid, L, R);
+        int rightSum = rangeQueryUtil(2 * node + 2, mid + 1, end, L, R);
+        return leftSum + rightSum; 
+    }
+
+public:
+    
+    SegmentTree(const std::vector<int>& arr) {
+        n = arr.size();
+        tree.resize(4 * n); 
+        lazy.resize(4 * n, 0); 
+        buildTree(arr, 0, 0, n - 1); 
+    }
+
+    
+    void rangeUpdate(int L, int R, int value) {
+        rangeUpdateUtil(0, 0, n - 1, L, R, value);
+    }
+
+    
+    int rangeQuery(int L, int R) {
+        return rangeQueryUtil(0, 0, n - 1, L, R);
+    }
+
+    
+    void pointUpdate(int idx, int newValue) {
+        rangeUpdate(idx, idx, newValue); 
+    }
+
+    
+    ~SegmentTree() {
         
-        if (qx1 <= x1 && qy1 <= y1 && qx2 >= x2 && qy2 >= y2) return node->value;
-
-        int midX = (x1 + x2) / 2;
-        int midY = (y1 + y2) / 2;
-
-        
-        int leftSum = query(node->left, x1, y1, midX, midY, qx1, qy1, qx2, qy2);
-        int rightSum = query(node->right, midX + 1, midY + 1, x2, y2, qx1, qy1, qx2, qy2);
-
-        return leftSum + rightSum;
     }
 };
 
 int main() {
-    int rows = 10, cols = 10;
-    PersistentSegmentTree2D pst2d(rows, cols);
+    std::vector<int> arr = {1, 2, 3, 4, 5};
+    SegmentTree segmentTree(arr);
 
-    pst2d.rangeUpdate(0, 1, 1, 3, 3, 5);
-    pst2d.rangeUpdate(1, 2, 2, 5, 5, 10);
+    std::cout << "Initial sum of range [1, 3]: " << segmentTree.rangeQuery(1, 3) << std::endl; 
+    segmentTree.rangeUpdate(1, 3, 2); 
+    std::cout << "Updated sum of range [1, 3]: " << segmentTree.rangeQuery(1, 3) << std::endl; 
 
-    cout << "Sum in range (1, 1) to (3, 3) in version 0: " << pst2d.rangeQuery(0, 1, 1, 3, 3) << endl;
-    cout << "Sum in range (2, 2) to (5, 5) in version 1: " << pst2d.rangeQuery(1, 2, 2, 5, 5) << endl;
+    segmentTree.pointUpdate(2, 10); 
+    std::cout << "Sum of range [0, 4]: " << segmentTree.rangeQuery(0, 4) << std::endl; 
 
     return 0;
 }
